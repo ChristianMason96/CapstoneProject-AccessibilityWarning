@@ -1,28 +1,37 @@
 const express = require("express");
+const multer = require("multer");
 const { movieQueue } = require("./queue");
 
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
-
-app.get("/", (req, res) => {
-  res.send("Backend server running");
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "../uploads");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  }
 });
 
-app.get("/test-job", async (req, res) => {
+const upload = multer({ storage });
+
+app.post("/upload", upload.single("movie"), async (req, res) => {
   try {
+    const filePath = req.file.path;
+
     const job = await movieQueue.add("process-movie", {
-      moviePath: "../uploads/test.mp4"
+      moviePath: filePath
     });
 
     res.json({
-      message: "Test job added successfully",
+      message: "Movie uploaded and job created",
       jobId: job.id
     });
+
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Failed to add test job" });
+    res.status(500).json({ error: "Upload failed" });
   }
 });
 
