@@ -2,8 +2,11 @@ import sys
 import os
 import subprocess
 
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+
 def extract_frames(movie_path, movie_name):
-    frames_output_dir = os.path.join("output", "frames", movie_name)
+    frames_output_dir = os.path.join(OUTPUT_DIR, "frames", movie_name)
     os.makedirs(frames_output_dir, exist_ok=True)
 
     frame_pattern = os.path.join(frames_output_dir, "frame_%04d.jpg")
@@ -20,7 +23,7 @@ def extract_frames(movie_path, movie_name):
 
 
 def extract_audio(movie_path, movie_name):
-    audio_output_dir = os.path.join("output", "audio")
+    audio_output_dir = os.path.join(OUTPUT_DIR, "audio")
     os.makedirs(audio_output_dir, exist_ok=True)
 
     audio_output_path = os.path.join(audio_output_dir, f"{movie_name}.wav")
@@ -41,6 +44,8 @@ def extract_audio(movie_path, movie_name):
 
 
 def process_movie(movie_path):
+    movie_path = os.path.abspath(movie_path)
+
     if not os.path.exists(movie_path):
         print(f"Error: file not found -> {movie_path}")
         return 1
