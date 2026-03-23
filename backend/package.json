@@ -18,9 +18,9 @@
   "author": "Group 20",
   "license": "ISC",
   "dependencies": {
-    "bullmq": "^5.70.4",
+    "bullmq": "^5.71.0",
     "express": "^5.2.1",
-    "ioredis": "^5.10.0",
+    "ioredis": "^5.10.1",
     "multer": "^2.1.1"
   },
   "devDependencies": {

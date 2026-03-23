@@ -1,9 +1,16 @@
 import sys
 import os
 import subprocess
+import traceback
+
+from detectors.flash_detector import detect_flash_events
+from detectors.audio_detector import detect_audio_spikes
+from utils.result_utils import save_json_results
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
+
 
 def extract_frames(movie_path, movie_name):
     frames_output_dir = os.path.join(OUTPUT_DIR, "frames", movie_name)
@@ -34,13 +41,15 @@ def extract_audio(movie_path, movie_name):
         "-vn",
         "-acodec", "pcm_s16le",
         "-ar", "44100",
-        "-ac", "2",
+        "-ac", "1",
         audio_output_path
     ]
 
     print("Extracting audio and converting to WAV...")
     subprocess.run(command, check=True)
     print(f"Audio saved to: {audio_output_path}")
+
+    return audio_output_path
 
 
 def process_movie(movie_path):
@@ -50,20 +59,47 @@ def process_movie(movie_path):
         print(f"Error: file not found -> {movie_path}")
         return 1
 
-    # Get filename without extension
     movie_name = os.path.splitext(os.path.basename(movie_path))[0]
+
+    flash_model_path = os.path.join(MODELS_DIR, "flash_model.joblib")
+    audio_model_path = os.path.join(MODELS_DIR, "audio_model.joblib")
 
     try:
         print(f"Processing movie: {movie_path}")
+
         extract_frames(movie_path, movie_name)
-        extract_audio(movie_path, movie_name)
+        audio_path = extract_audio(movie_path, movie_name)
+
+        print("Running flash detection...")
+        print("Flash model path:", flash_model_path)
+        print("Flash model exists:", os.path.exists(flash_model_path))
+        print("Movie path for flash detection:", movie_path)
+        print("Movie exists:", os.path.exists(movie_path))
+        # flash_events = detect_flash_events(movie_path, flash_model_path)
+        flash_events = detect_flash_events(movie_path, "DOES_NOT_EXIST.joblib")
+
+        print("Running audio spike detection...")
+        audio_events = detect_audio_spikes(audio_path, audio_model_path)
+
+        all_results = {
+            "movie_name": movie_name,
+            "flash_warnings": flash_events,
+            "audio_warnings": audio_events
+        }
+
+        results_dir = os.path.join(OUTPUT_DIR, "results")
+        results_file = save_json_results(results_dir, f"{movie_name}_results.json", all_results)
+
+        print(f"Results saved to: {results_file}")
         print("Worker pipeline completed successfully.")
         return 0
+
     except subprocess.CalledProcessError as e:
         print("FFmpeg processing failed:", e)
         return 1
     except Exception as e:
-        print("Unexpected error:", e)
+        print("Unexpected error:", repr(e))
+        traceback.print_exc()
         return 1
 
 
