@@ -1,0 +1,1 @@
+print("Python worker started successfully.")
