@@ -6,6 +6,7 @@ import traceback
 from detectors.flash_detector import detect_flash_events
 from detectors.audio_detector import detect_audio_spikes
 from utils.result_utils import save_json_results
+from utils.grouping_utils import group_flash_events, group_audio_events
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
@@ -71,20 +72,17 @@ def process_movie(movie_path):
         audio_path = extract_audio(movie_path, movie_name)
 
         print("Running flash detection...")
-        print("Flash model path:", flash_model_path)
-        print("Flash model exists:", os.path.exists(flash_model_path))
-        print("Movie path for flash detection:", movie_path)
-        print("Movie exists:", os.path.exists(movie_path))
-        # flash_events = detect_flash_events(movie_path, flash_model_path)
-        flash_events = detect_flash_events(movie_path, "DOES_NOT_EXIST.joblib")
+        flash_events = detect_flash_events(movie_path, flash_model_path)
+        grouped_flash_warnings = group_flash_events(flash_events)
 
         print("Running audio spike detection...")
         audio_events = detect_audio_spikes(audio_path, audio_model_path)
+        grouped_audio_warnings = group_audio_events(audio_events)
 
         all_results = {
             "movie_name": movie_name,
-            "flash_warnings": flash_events,
-            "audio_warnings": audio_events
+            "flash_warnings": grouped_flash_warnings,
+            "audio_warnings": grouped_audio_warnings
         }
 
         results_dir = os.path.join(OUTPUT_DIR, "results")

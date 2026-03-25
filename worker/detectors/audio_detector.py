@@ -3,12 +3,6 @@ import joblib
 import numpy as np
 import librosa
 
-
-# def load_audio_model(model_path):
-#     if os.path.exists(model_path):
-#         return joblib.load(model_path)
-#     return None
-
 def load_audio_model(model_path):
     if not os.path.exists(model_path):
         return None
