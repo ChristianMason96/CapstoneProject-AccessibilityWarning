@@ -8,24 +8,39 @@ class LocalStorageProvider extends StorageProvider {
     super();
     this.uploadPath = path.join(__dirname, '../../uploads');
 
-    // Create folder if not exists
     if (!fs.existsSync(this.uploadPath)) {
       fs.mkdirSync(this.uploadPath, { recursive: true });
     }
   }
 
-  async upload(file) {
-    const fileName = `${Date.now()}-${file.originalname}`;
-    const filePath = path.join(this.uploadPath, fileName);
+ async upload(file) {
+  // generate movie ID (for now simple)
+  const movieId = `movie_${Date.now()}`;
 
-    await fs.promises.writeFile(filePath, file.buffer);
+  // clean file name (lowercase + underscores)
+  const cleanName = file.originalname
+    .toLowerCase()
+    .replace(/\s+/g, "_");
 
-    return {
-      path: filePath,
-      fileName: fileName
-    };
+  const movieFolder = path.join(this.uploadPath, movieId, "original");
+
+  // create folders
+  if (!fs.existsSync(movieFolder)) {
+    fs.mkdirSync(movieFolder, { recursive: true });
   }
 
+  const filePath = path.join(movieFolder, cleanName);
+
+  await fs.promises.writeFile(filePath, file.buffer);
+
+  return {
+    provider: 'local',
+    path: filePath,
+    fileName: cleanName,
+    movieId: movieId,
+    originalName: file.originalname
+  };
+}
   async get(filePath) {
     return fs.promises.readFile(filePath);
   }

@@ -8,7 +8,6 @@ const app = express();
 const PORT = 3000;
 
 const upload = multer({ storage: multer.memoryStorage() });
-const storageProvider = getStorageProvider();
 
 app.post("/upload", upload.single("movie"), async (req, res) => {
   try {
@@ -16,23 +15,18 @@ app.post("/upload", upload.single("movie"), async (req, res) => {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    const storageProvider = getStorageProvider();
     const savedFile = await storageProvider.upload(req.file);
 
     const job = await movieQueue.add("process-movie", {
-      moviePath: savedFile.path,
-      originalFileName: req.file.originalname,
-      storedFileName: savedFile.fileName,
+      fileReference: savedFile,
       uploadedAt: new Date().toISOString()
     });
 
     res.json({
       message: "Movie uploaded and job created",
       jobId: job.id,
-      file: {
-        originalName: req.file.originalname,
-        storedName: savedFile.fileName,
-        path: savedFile.path
-      }
+      file: savedFile
     });
 
   } catch (error) {
