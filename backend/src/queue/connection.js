@@ -1,4 +1,5 @@
 const IORedis = require("ioredis");
+const { Queue } = require("bullmq");
 
 const connection = new IORedis({
   host: "127.0.0.1",
@@ -6,4 +7,6 @@ const connection = new IORedis({
   maxRetriesPerRequest: null
 });
 
-module.exports = { connection };
+const movieQueue = new Queue("movie-processing", { connection });
+
+module.exports = { movieQueue, connection };
