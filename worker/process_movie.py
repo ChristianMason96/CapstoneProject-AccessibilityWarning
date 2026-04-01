@@ -2,6 +2,7 @@ import sys
 import os
 import subprocess
 import traceback
+import shutil
 
 from detectors.flash_detector import detect_flash_events
 from detectors.audio_detector import detect_audio_spikes
@@ -52,6 +53,23 @@ def extract_audio(movie_path, movie_name):
 
     return audio_output_path
 
+def cleanup_temp_files(movie_name):
+    frames_output_dir = os.path.join(OUTPUT_DIR, "frames", movie_name)
+    audio_output_path = os.path.join(OUTPUT_DIR, "audio", f"{movie_name}.wav")
+
+    try:
+        if os.path.exists(frames_output_dir):
+            shutil.rmtree(frames_output_dir)
+            print(f"Deleted frames folder: {frames_output_dir}")
+    except Exception as e:
+        print(f"Warning: could not delete frames folder: {repr(e)}")
+
+    try:
+        if os.path.exists(audio_output_path):
+            os.remove(audio_output_path)
+            print(f"Deleted audio file: {audio_output_path}")
+    except Exception as e:
+        print(f"Warning: could not delete audio file: {repr(e)}")
 
 def process_movie(movie_path):
     movie_path = os.path.abspath(movie_path)
@@ -89,6 +107,9 @@ def process_movie(movie_path):
         results_file = save_json_results(results_dir, f"{movie_name}_results.json", all_results)
 
         print(f"Results saved to: {results_file}")
+
+        cleanup_temp_files(movie_name)
+
         print("Worker pipeline completed successfully.")
         return 0
 
@@ -105,6 +126,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python process_movie.py <movie_path>")
         sys.exit(1)
+
 
     movie_path = sys.argv[1]
     exit_code = process_movie(movie_path)
