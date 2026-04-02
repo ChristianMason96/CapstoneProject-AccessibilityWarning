@@ -22,6 +22,7 @@ def extract_frames(movie_path, movie_name):
 
     command = [
         "ffmpeg",
+        "-y",
         "-i", movie_path,
         frame_pattern
     ]
@@ -39,6 +40,7 @@ def extract_audio(movie_path, movie_name):
 
     command = [
         "ffmpeg",
+        "-y",
         "-i", movie_path,
         "-vn",
         "-acodec", "pcm_s16le",
@@ -108,7 +110,7 @@ def process_movie(movie_path):
 
         print(f"Results saved to: {results_file}")
 
-       # cleanup_temp_files(movie_name)
+        cleanup_temp_files(movie_name)
 
         print("Worker pipeline completed successfully.")
         return 0

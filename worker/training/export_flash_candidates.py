@@ -52,7 +52,7 @@ def export_flash_candidates(video_path, output_csv_path, source_clip_name=None, 
         if prev_frame is not None:
             features = compute_flash_features(prev_frame, frame)
 
-            # Lower threshold so you export candidate rows, not just strongest detections
+
             if features["brightness_diff"] > brightness_threshold:
                 rows.append({
                     "source_clip": source_clip_name,

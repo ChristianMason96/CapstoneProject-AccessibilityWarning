@@ -2,6 +2,8 @@ import os
 import joblib
 import numpy as np
 import librosa
+import pandas as pd
+
 
 def load_audio_model(model_path):
     if not os.path.exists(model_path):
@@ -13,6 +15,7 @@ def load_audio_model(model_path):
         print(f"Warning: could not load audio model at {model_path}: {repr(e)}")
         print("Falling back to baseline audio detection.")
         return None
+
 
 def rms_energy(window):
     return float(np.sqrt(np.mean(window ** 2))) if len(window) > 0 else 0.0
@@ -28,6 +31,15 @@ def zcr(window):
             hop_length=len(window)
         )[0][0]
     )
+
+
+def feature_dict_to_vector(feature_dict):
+    return pd.DataFrame([{
+        "rms": feature_dict["rms"],
+        "peak": feature_dict["peak"],
+        "zcr": feature_dict["zcr"],
+        "rms_delta": feature_dict["rms_delta"]
+    }])
 
 
 def severity_from_score(confidence):
@@ -70,28 +82,44 @@ def detect_audio_spikes(audio_path, model_path, window_ms=200, hop_ms=100):
         curr_rms = rms_energy(window)
         curr_peak = float(np.max(np.abs(window))) if len(window) > 0 else 0.0
         curr_zcr = zcr(window)
-
         rms_delta = 0.0 if prev_rms is None else curr_rms - prev_rms
 
+        timestamp_start = start / sr
+        timestamp_end = end / sr
+
         if model is not None:
-            X = [[curr_rms, curr_peak, curr_zcr, rms_delta]]
-            prediction = model.predict(X)[0]
+            features = {
+                "rms": curr_rms,
+                "peak": curr_peak,
+                "zcr": curr_zcr,
+                "rms_delta": rms_delta
+            }
 
-            if hasattr(model, "predict_proba"):
-                confidence = float(model.predict_proba(X)[0][1])
-            else:
-                confidence = 1.0 if prediction == 1 else 0.0
+            X = feature_dict_to_vector(features)
 
-            is_spike = prediction == 1
-            detection_mode = "ml_model"
+            try:
+                prediction = model.predict(X)[0]
+
+                if hasattr(model, "predict_proba"):
+                    confidence = float(model.predict_proba(X)[0][1])
+                else:
+                    confidence = 1.0 if prediction == 1 else 0.0
+
+                is_spike = prediction == 1
+                detection_mode = "ml_model"
+
+            except Exception as e:
+                print("\nAudio model prediction failed.")
+                print(f"Timestamp start: {timestamp_start:.2f}")
+                print(f"Timestamp end: {timestamp_end:.2f}")
+                print(f"Features: {features}")
+                print(f"Model path: {model_path}")
+                raise
         else:
             is_spike, confidence = baseline_audio_decision(curr_rms, curr_peak, rms_delta)
             detection_mode = "baseline_rule"
 
         if is_spike:
-            timestamp_start = start / sr
-            timestamp_end = end / sr
-
             events.append({
                 "type": "audio_spike",
                 "timestamp_start": round(timestamp_start, 2),

@@ -20,7 +20,7 @@ def zcr(window):
     )
 
 
-def export_audio_candidates(audio_path, output_csv_path, source_clip_name=None, window_ms=200, hop_ms=100):
+def export_audio_candidates(audio_path, output_csv_path, source_clip_name=None, window_ms=250, hop_ms=200):
     y, sr = librosa.load(audio_path, sr=44100, mono=True)
 
     if source_clip_name is None:
@@ -32,6 +32,9 @@ def export_audio_candidates(audio_path, output_csv_path, source_clip_name=None, 
     rows = []
     prev_rms = None
 
+    last_export_time = -999
+    min_gap_seconds = 0.5
+
     for start in range(0, len(y) - window_size + 1, hop_size):
         end = start + window_size
         window = y[start:end]
@@ -40,9 +43,11 @@ def export_audio_candidates(audio_path, output_csv_path, source_clip_name=None, 
         curr_peak = float(np.max(np.abs(window))) if len(window) > 0 else 0.0
         curr_zcr = zcr(window)
         rms_delta = 0.0 if prev_rms is None else curr_rms - prev_rms
+        timestamp_start = start / sr
+        timestamp_end = end / sr
 
-        # Lower threshold so you export candidate windows, not just strongest detections
-        if curr_peak > 0.35 or rms_delta > 0.03:
+
+        if (curr_peak > 0.60 or rms_delta > 0.06) and (timestamp_start - last_export_time >= min_gap_seconds):
             rows.append({
                 "source_clip": source_clip_name,
                 "timestamp_start": round(start / sr, 2),
@@ -53,6 +58,7 @@ def export_audio_candidates(audio_path, output_csv_path, source_clip_name=None, 
                 "rms_delta": round(rms_delta, 4),
                 "label": ""
             })
+            last_export_time = timestamp_start
 
         prev_rms = curr_rms
 
@@ -85,7 +91,7 @@ if __name__ == "__main__":
     PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 
     # CHANGE THIS each time
-    sample_audio_path = os.path.join(PROJECT_ROOT, "output", "audio", "YOUR_TEST_AUDIO.wav")
+    sample_audio_path = os.path.join(PROJECT_ROOT, "output", "audio", "Smile2PeakingAudio.wav")
 
     output_csv_path = os.path.join(BASE_DIR, "training", "audio_training_data.csv")
 

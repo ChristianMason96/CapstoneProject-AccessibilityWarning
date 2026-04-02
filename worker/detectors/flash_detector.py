@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import joblib
 import os
+import pandas as pd
+
 
 def load_flash_model(model_path):
     if not os.path.exists(model_path):
@@ -13,6 +15,7 @@ def load_flash_model(model_path):
         print(f"Warning: could not load flash model at {model_path}: {repr(e)}")
         print("Falling back to baseline flash detection.")
         return None
+
 
 def compute_flash_features(prev_frame, curr_frame):
     prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
@@ -37,13 +40,13 @@ def compute_flash_features(prev_frame, curr_frame):
 
 
 def feature_dict_to_vector(feature_dict):
-    return [[
-        feature_dict["prev_brightness"],
-        feature_dict["curr_brightness"],
-        feature_dict["brightness_diff"],
-        feature_dict["changed_pixels_ratio"],
-        feature_dict["std_curr"]
-    ]]
+    return pd.DataFrame([{
+        "prev_brightness": feature_dict["prev_brightness"],
+        "curr_brightness": feature_dict["curr_brightness"],
+        "brightness_diff": feature_dict["brightness_diff"],
+        "changed_pixels_ratio": feature_dict["changed_pixels_ratio"],
+        "std_curr": feature_dict["std_curr"]
+    }])
 
 
 def severity_from_score(confidence):
@@ -92,6 +95,8 @@ def detect_flash_events(video_path, model_path, min_gap_seconds=0.3):
         cap.release()
         raise ValueError("Could not read FPS from video.")
 
+    print("FPS:", fps)
+
     flash_events = []
     prev_frame = None
     frame_index = 0
@@ -107,13 +112,24 @@ def detect_flash_events(video_path, model_path, min_gap_seconds=0.3):
             X = feature_dict_to_vector(features)
 
             if model is not None:
-                prediction = model.predict(X)[0]
-                if hasattr(model, "predict_proba"):
-                    confidence = float(model.predict_proba(X)[0][1])
-                else:
-                    confidence = 1.0 if prediction == 1 else 0.0
-                is_flash = prediction == 1
-                detection_mode = "ml_model"
+                try:
+                    prediction = model.predict(X)[0]
+
+                    if hasattr(model, "predict_proba"):
+                        confidence = float(model.predict_proba(X)[0][1])
+                    else:
+                        confidence = 1.0 if prediction == 1 else 0.0
+
+                    is_flash = prediction == 1
+                    detection_mode = "ml_model"
+
+                except Exception as e:
+                    print("\nFlash model prediction failed.")
+                    print(f"Frame index: {frame_index}")
+                    print(f"Timestamp: {frame_index / fps:.2f}")
+                    print(f"Features: {features}")
+                    print(f"Model path: {model_path}")
+                    raise
             else:
                 is_flash, confidence = baseline_flash_decision(features)
                 detection_mode = "baseline_rule"
