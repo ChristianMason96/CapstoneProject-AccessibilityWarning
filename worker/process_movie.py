@@ -108,7 +108,7 @@ def process_movie(movie_path):
 
         print(f"Results saved to: {results_file}")
 
-        cleanup_temp_files(movie_name)
+       # cleanup_temp_files(movie_name)
 
         print("Worker pipeline completed successfully.")
         return 0
