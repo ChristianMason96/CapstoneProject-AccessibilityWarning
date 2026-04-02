@@ -6,7 +6,7 @@ const StorageProvider = require('./storage.interface');
 class LocalStorageProvider extends StorageProvider {
   constructor() {
     super();
-    this.uploadPath = path.join(__dirname, '../../uploads');
+    this.uploadPath = path.join(__dirname, "../../uploads");
 
     if (!fs.existsSync(this.uploadPath)) {
       fs.mkdirSync(this.uploadPath, { recursive: true });

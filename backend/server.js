@@ -1,128 +1,19 @@
-// const express = require("express");
-// const uploadRoutes = require("./src/routes/uploadRoutes");
-
-// const app = express();
-// const PORT = 3000;
-
-// app.use(express.json());
-// app.use("/", uploadRoutes);
-
-// app.get("/", (req, res) => {
-//   res.send("Backend is running.");
-// });
-
-// app.listen(PORT, () => {
-//   console.log(`Server running on http://localhost:${PORT}`);
-// });
-
 const express = require("express");
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 require("dotenv").config();
 
-const { movieQueue } = require("./queue");
-const pool = require("./db");
+const uploadRoutes = require("./src/routes/uploadRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-
-const uploadsDir = path.join(__dirname, "..", "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
-});
-
-const upload = multer({ storage });
+app.use("/", uploadRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is running.");
 });
 
-app.post("/upload", upload.single("movie"), async (req, res) => {
-  const client = await pool.connect();
-
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No movie file uploaded" });
-    }
-
-    const filePath = req.file.path;
-    const originalFileName = req.file.originalname;
-    const storedFileName = req.file.filename;
-
-    await client.query("BEGIN");
-
-    const mediaResult = await client.query(
-      `
-      INSERT INTO media_files (original_filename, stored_filename, file_path)
-      VALUES ($1, $2, $3)
-      RETURNING id
-      `,
-      [originalFileName, storedFileName, filePath]
-    );
-
-    const mediaFileId = mediaResult.rows[0].id;
-
-    const jobRowResult = await client.query(
-      `
-      INSERT INTO jobs (media_file_id, status)
-      VALUES ($1, 'queued')
-      RETURNING id
-      `,
-      [mediaFileId]
-    );
-
-    const dbJobId = jobRowResult.rows[0].id;
-
-    const bullJob = await movieQueue.add("process-movie", {
-      dbJobId,
-      mediaFileId,
-      moviePath: filePath,
-      originalFileName,
-      storedFileName,
-      uploadedAt: new Date().toISOString()
-    });
-
-    await client.query(
-      `
-      UPDATE jobs
-      SET bullmq_job_id = $1
-      WHERE id = $2
-      `,
-      [String(bullJob.id), dbJobId]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({
-      message: "Movie uploaded and job created",
-      jobId: bullJob.id,
-      dbJobId,
-      file: {
-        originalName: originalFileName,
-        storedName: storedFileName,
-        path: filePath
-      }
-    });
-  } catch (error) {
-    await client.query("ROLLBACK");
-    console.error("Upload failed:", error);
-    res.status(500).json({ error: "Upload failed" });
-  } finally {
-    client.release();
-  }
-});
+const pool = require("./db");
 
 app.get("/jobs/:jobId/warnings", async (req, res) => {
   try {
