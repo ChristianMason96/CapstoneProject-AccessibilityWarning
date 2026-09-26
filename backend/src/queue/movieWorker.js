@@ -15,14 +15,18 @@ const worker = new Worker(
 
     const { dbJobId, moviePath, storedFileName } = job.data;
 
-    await pool.query(
-      `
-      UPDATE jobs
-      SET status = 'processing', started_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-      `,
-      [dbJobId]
-    );
+  await pool.query(
+    `
+    UPDATE jobs
+    SET
+      status = 'processing',
+      started_at = CURRENT_TIMESTAMP,
+      completed_at = NULL,
+      error_message = NULL
+    WHERE id = $1
+    `,
+    [dbJobId]
+  );
 
     const pythonScript = path.join(__dirname, "..", "..", "..", "worker", "process_movie.py");
 
@@ -87,14 +91,17 @@ const worker = new Worker(
       );
     }
 
-    await pool.query(
-      `
-      UPDATE jobs
-      SET status = 'completed', completed_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-      `,
-      [dbJobId]
-    );
+  await pool.query(
+    `
+    UPDATE jobs
+    SET
+      status = 'completed',
+      completed_at = CURRENT_TIMESTAMP,
+      error_message = NULL
+    WHERE id = $1
+    `,
+    [dbJobId]
+  );
 
     console.log("Python script completed successfully.");
     return { success: true };
@@ -111,9 +118,12 @@ worker.on("failed", async (job, err) => {
   try {
     if (job?.data?.dbJobId) {
       await pool.query(
-        `
+          `
         UPDATE jobs
-        SET status = 'failed', error_message = $2, completed_at = CURRENT_TIMESTAMP
+        SET
+          status = 'failed',
+          error_message = $2,
+          completed_at = CURRENT_TIMESTAMP
         WHERE id = $1
         `,
         [job.data.dbJobId, err.message]

@@ -7,8 +7,16 @@ require("dotenv").config();
 const { movieQueue } = require("./queue");
 const pool = require("./db");
 
+const cors = require("cors");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+app.use(
+  cors({
+    origin: process.env.FRONTEND_ORIGIN || "http://localhost:4200"
+  })
+);
 
 app.use(express.json());
 
@@ -88,16 +96,12 @@ app.post("/upload", upload.single("movie"), async (req, res) => {
 
     await client.query("COMMIT");
 
-    res.json({
+    res.status(201).json({
       message: "Movie uploaded and job created",
-      jobId: bullJob.id,
-      dbJobId,
-      file: {
-        originalName: originalFileName,
-        storedName: storedFileName,
-        path: filePath
-      }
-    });
+      jobId: String(bullJob.id),
+      status: "queued",
+      fileName: originalFileName
+      });
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("Upload failed:", error);
@@ -168,6 +172,51 @@ app.get("/jobs/:jobId/warnings", async (req, res) => {
   } catch (error) {
     console.error("Failed to fetch warnings:", error);
     res.status(500).json({ error: "Failed to fetch warnings" });
+  }
+});
+
+app.get("/jobs/:jobId/status", async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    const result = await pool.query(
+      `
+      SELECT
+        bullmq_job_id,
+        status,
+        error_message,
+        created_at,
+        started_at,
+        completed_at
+      FROM jobs
+      WHERE bullmq_job_id = $1
+      `,
+      [jobId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: "Job not found"
+      });
+    }
+
+    const job = result.rows[0];
+
+    res.json({
+      jobId: job.bullmq_job_id,
+      status: job.status,
+      error: job.error_message,
+      createdAt: job.created_at,
+      startedAt: job.started_at,
+      completedAt: job.completed_at
+    });
+
+  } catch (error) {
+    console.error("Failed to retrieve job status:", error);
+
+    res.status(500).json({
+      error: "Failed to retrieve job status"
+    });
   }
 });
 
