@@ -33,8 +33,29 @@
 
   </div>
 
-  <p *ngIf="errorMessage">
+<div
+  class="error-box"
+  *ngIf="errorMessage">
+  
+  <strong *ngIf="errorType === 'validation'">
+    Invalid File
+  </strong>
+
+  <strong *ngIf="errorType === 'upload'">
+    Upload Error
+  </strong>
+
+  <strong *ngIf="errorType === 'processing'">
+    Processing Error
+  </strong>
+
+  <strong *ngIf="errorType === 'connection'">
+    Connection Error
+  </strong>
+
+  <p>
     {{ errorMessage }}
   </p>
+</div>
 
 </div>

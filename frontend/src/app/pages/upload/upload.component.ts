@@ -23,6 +23,13 @@ export class UploadComponent implements OnDestroy {
 
   errorMessage = '';
 
+  errorType:
+    | 'validation'
+    | 'upload'
+    | 'processing'
+    | 'connection'
+    | '' = '';
+
   uploading = false;
 
   private statusSubscription?: Subscription;
@@ -32,61 +39,128 @@ export class UploadComponent implements OnDestroy {
     private router: Router
   ) {}
 
-  onFileSelected(event: Event) {
+  onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
 
-    if (input.files && input.files.length > 0) {
-      this.selectedFile = input.files[0];
-      this.errorMessage = '';
-    }
-  }
-
-  uploadMovie() {
-    if (!this.selectedFile) {
-      this.errorMessage = 'Please select a movie.';
+    if (!input.files || input.files.length === 0) {
+      this.selectedFile = null;
       return;
     }
 
-    this.uploading = true;
-    this.status = 'Uploading...';
+    const file = input.files[0];
+
+    // Basic validation: only allow video files
+    if (!file.type.startsWith('video/')) {
+      this.selectedFile = null;
+
+      this.errorType = 'validation';
+      this.errorMessage =
+        'Please select a valid video file.';
+
+      // Clear the file input
+      input.value = '';
+
+      return;
+    }
+
+    // Valid file selected
+    this.selectedFile = file;
+
+    // Clear any previous errors
+    this.errorType = '';
     this.errorMessage = '';
 
-    this.movieApi.uploadMovie(this.selectedFile).subscribe({
-      next: response => {
-
-        this.jobId = response.jobId;
-        this.status = response.status || 'queued';
-
-        this.startStatusPolling();
-
-      },
-
-      error: error => {
-
-        console.error(error);
-
-        this.uploading = false;
-        this.status = '';
-
-        this.errorMessage =
-          error?.error?.error ||
-          'Movie upload failed.';
-      }
-    });
+    // Clear previous job information
+    this.jobId = null;
+    this.status = '';
   }
 
-  private startStatusPolling() {
+  uploadMovie(): void {
+
+    // Prevent upload without a selected movie
+    if (!this.selectedFile) {
+      this.errorType = 'validation';
+      this.errorMessage =
+        'Please select a movie before starting the analysis.';
+      return;
+    }
+
+    // Cancel any previous polling subscription
+    this.statusSubscription?.unsubscribe();
+
+    // Clear previous errors
+    this.errorType = '';
+    this.errorMessage = '';
+
+    this.uploading = true;
+    this.status = 'Uploading...';
+    this.jobId = null;
+
+    this.movieApi
+      .uploadMovie(this.selectedFile)
+      .subscribe({
+
+        next: response => {
+
+          this.jobId = String(response.jobId);
+
+          this.status =
+            response.status || 'queued';
+
+          this.startStatusPolling();
+        },
+
+        error: error => {
+
+          console.error(
+            'Movie upload failed:',
+            error
+          );
+
+          this.uploading = false;
+          this.status = '';
+
+          // status 0 usually means Angular could not
+          // connect to the backend at all
+          if (error.status === 0) {
+
+            this.errorType = 'connection';
+
+            this.errorMessage =
+              'Cannot connect to the server. Please make sure the backend is running and try again.';
+
+            return;
+          }
+
+          // Backend responded, but upload failed
+          this.errorType = 'upload';
+
+          this.errorMessage =
+            error?.error?.error ||
+            'Movie upload failed. Please try again.';
+        }
+      });
+  }
+
+  private startStatusPolling(): void {
 
     if (!this.jobId) {
       return;
     }
 
+    // Stop any previous polling before starting a new one
+    this.statusSubscription?.unsubscribe();
+
     this.statusSubscription = timer(0, 2000)
       .pipe(
+
         switchMap(() =>
           this.movieApi.getJobStatus(this.jobId!)
         ),
 
+        // Continue polling until the job is either
+        // completed or failed.
+        // "true" includes the final response.
         takeWhile(
           response =>
             response.status !== 'completed' &&
@@ -100,39 +174,68 @@ export class UploadComponent implements OnDestroy {
 
           this.status = response.status;
 
+          // Successful processing
           if (response.status === 'completed') {
 
             this.uploading = false;
+
+            this.errorType = '';
+            this.errorMessage = '';
 
             this.router.navigate([
               '/results',
               this.jobId
             ]);
+
+            return;
           }
 
+          // Worker / Python processing failure
           if (response.status === 'failed') {
 
             this.uploading = false;
 
+            this.errorType = 'processing';
+
             this.errorMessage =
               response.error ||
-              'Movie processing failed.';
+              'Movie processing failed. Please try another file.';
+
+            return;
           }
         },
 
         error: error => {
 
-          console.error(error);
+          console.error(
+            'Job status request failed:',
+            error
+          );
 
           this.uploading = false;
 
+          // Backend cannot be reached
+          if (error.status === 0) {
+
+            this.errorType = 'connection';
+
+            this.errorMessage =
+              'Unable to connect to the server while checking the movie status.';
+
+            return;
+          }
+
+          // Backend responded but status request failed
+          this.errorType = 'connection';
+
           this.errorMessage =
-            'Unable to check job status.';
+            error?.error?.error ||
+            'Unable to retrieve the processing status. Please try again.';
         }
       });
   }
 
-  ngOnDestroy() {
+  ngOnDestroy(): void {
     this.statusSubscription?.unsubscribe();
   }
 }
