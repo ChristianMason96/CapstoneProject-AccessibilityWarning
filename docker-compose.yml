@@ -11,6 +11,59 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio_storage:/data
+    networks:
+      - capstone-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: capstone-redis-2026
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_storage:/data
+    networks:
+      - capstone-network
+
+  postgres:
+    image: postgres:17
+    container_name: capstone-minio-2026
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: capstone_db
+    volumes:
+      - postgres_storage:/var/lib/postgresql/data
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    networks:
+      - capstone-network
+
+  backend:
+    build:
+      context: ./backend
+    container_name: capstone-backend-2026
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: capstone_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - capstone-network
 
 volumes:
   minio_storage:
+  redis_storage:
+  postgres_storage:
+
+networks:
+  capstone-network:
+    driver: bridge
