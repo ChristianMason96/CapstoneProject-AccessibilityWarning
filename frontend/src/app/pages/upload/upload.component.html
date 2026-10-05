@@ -1,0 +1,61 @@
+<div class="upload-container">
+
+  <h1>AI Accessibility Warning for Movies</h1>
+
+  <p>
+    Upload a movie to check for flashing visuals
+    and sudden audio spikes.
+  </p>
+
+  <input
+    type="file"
+    accept="video/*"
+    (change)="onFileSelected($event)"
+  />
+
+  <p *ngIf="selectedFile">
+    Selected:
+    {{ selectedFile.name }}
+  </p>
+
+  <button
+    (click)="uploadMovie()"
+    [disabled]="!selectedFile || uploading"
+  >
+    Analyze Movie
+  </button>
+
+  <div *ngIf="status">
+
+    <h3>Status</h3>
+
+    <p>{{ status }}</p>
+
+  </div>
+
+<div
+  class="error-box"
+  *ngIf="errorMessage">
+  
+  <strong *ngIf="errorType === 'validation'">
+    Invalid File
+  </strong>
+
+  <strong *ngIf="errorType === 'upload'">
+    Upload Error
+  </strong>
+
+  <strong *ngIf="errorType === 'processing'">
+    Processing Error
+  </strong>
+
+  <strong *ngIf="errorType === 'connection'">
+    Connection Error
+  </strong>
+
+  <p>
+    {{ errorMessage }}
+  </p>
+</div>
+
+</div>

@@ -1,0 +1,18 @@
+.results-container,
+.upload-container {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+.warning-card {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+button {
+  padding: 10px 20px;
+  cursor: pointer;
+}
