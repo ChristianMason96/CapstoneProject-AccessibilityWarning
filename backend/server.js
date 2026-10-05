@@ -1,3 +1,4 @@
+const morgan = require("morgan");
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
@@ -19,6 +20,13 @@ app.use(
 );
 
 app.use(express.json());
+
+// Morgan middleware for logging
+if (process.env.NODE_ENV === "production") {
+  app.use(morgan("combined"));
+} else {
+  app.use(morgan("dev"));
+}
 
 const uploadsDir = path.join(__dirname, "..", "uploads");
 if (!fs.existsSync(uploadsDir)) {
