@@ -1,4 +1,6 @@
+
 services:
+  # S3-compatible storage for movie uploads
   minio:
     image: minio/minio:latest
     container_name: capstone-minio
@@ -14,6 +16,23 @@ services:
     networks:
       - capstone-network
 
+  # Create the movie bucket automatically
+  minio-setup:
+    image: minio/mc:latest
+    container_name: capstone-minio-setup
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 admin password123; do
+        sleep 2;
+      done;
+      mc mb --ignore-existing local/capstone-movies;
+      "
+    networks:
+      - capstone-network
+
+  # Redis for BullMQ job queue
   redis:
     image: redis:7-alpine
     container_name: capstone-redis-2026
@@ -24,9 +43,10 @@ services:
     networks:
       - capstone-network
 
+  # PostgreSQL for movie and warning data
   postgres:
     image: postgres:17
-    container_name: capstone-minio-2026
+    container_name: capstone-postgres-2026
     ports:
       - "5432:5432"
     environment:
@@ -39,6 +59,7 @@ services:
     networks:
       - capstone-network
 
+  # Express API for uploading movies and retrieving warnings
   backend:
     build:
       context: ./backend
@@ -53,9 +74,60 @@ services:
       DB_PASSWORD: postgres
       REDIS_HOST: redis
       REDIS_PORT: 6379
+
+      # MinIO / S3 storage configuration
+      STORAGE_TYPE: s3
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password123
+      AWS_S3_BUCKET: capstone-movies
+      AWS_S3_ENDPOINT: http://minio:9000
+      AWS_S3_FORCE_PATH_STYLE: "true"
+    volumes:
+      - ./uploads:/uploads
     depends_on:
-      - redis
-      - postgres
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_started
+      minio-setup:
+        condition: service_completed_successfully
+    networks:
+      - capstone-network
+
+  # Node.js + Python worker for accessibility detection
+  processing-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.processing
+    container_name: capstone-processing-worker
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: capstone_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # MinIO / S3 storage configuration
+      STORAGE_TYPE: s3
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password123
+      AWS_S3_BUCKET: capstone-movies
+      AWS_S3_ENDPOINT: http://minio:9000
+      AWS_S3_FORCE_PATH_STYLE: "true"
+    volumes:
+      - ./uploads:/uploads
+      - ./output:/app/output
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_started
+      minio-setup:
+        condition: service_completed_successfully
     networks:
       - capstone-network
 

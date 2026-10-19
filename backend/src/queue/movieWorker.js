@@ -7,13 +7,14 @@ const fs = require("fs");
 
 const { connection } = require("./connection");
 const pool = require("../../db");
+const { getFile } = require("../services/storageService");
 
 const worker = new Worker(
   "movie-processing",
   async (job) => {
     console.log("Job received by Node worker:", job.data);
 
-    const { dbJobId, moviePath, storedFileName } = job.data;
+    const { dbJobId, fileReference } = job.data;
 
     await pool.query(
       `
@@ -23,6 +24,35 @@ const worker = new Worker(
       `,
       [dbJobId]
     );
+
+    let moviePath;
+    let storedFileName;
+
+    if (fileReference.provider === "s3") {
+      const tempDir = path.join(
+        __dirname,
+        "..",
+        "..",
+        "..",
+        "temp_downloads",
+        fileReference.movieId || `movie_${Date.now()}`
+      );
+
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      storedFileName = fileReference.fileName || fileReference.originalName;
+      moviePath = path.join(tempDir, storedFileName);
+
+      const fileBuffer = await getFile(fileReference);
+      fs.writeFileSync(moviePath, fileBuffer);
+
+      console.log("Downloaded S3 file to:", moviePath);
+    } else {
+      moviePath = fileReference.path;
+      storedFileName = fileReference.fileName || fileReference.storedName || fileReference.originalName;
+    }
 
     const pythonScript = path.join(__dirname, "..", "..", "..", "worker", "process_movie.py");
 
@@ -99,12 +129,7 @@ const worker = new Worker(
     console.log("Python script completed successfully.");
     return { success: true };
   },
-  {
-    connection,
-    lockDuration: 600000,
-    stalledInterval: 30000,
-    maxStalledCount: 3
-  }
+  { connection }
 );
 
 worker.on("failed", async (job, err) => {
