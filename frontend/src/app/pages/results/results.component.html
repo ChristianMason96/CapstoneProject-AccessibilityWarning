@@ -1,0 +1,314 @@
+<div class="results-page">
+  <div class="results-container">
+
+    <!-- Header -->
+    <header class="report-header">
+      <a routerLink="/" class="back-link">
+        ← Back to upload
+      </a>
+
+      <div class="report-heading">
+        <span class="eyebrow">
+          ✦ AI ACCESSIBILITY REPORT
+        </span>
+
+        <h1>Movie Analysis Results</h1>
+
+        <p>
+          Review detected accessibility events,
+          their severity, and when they occur.
+        </p>
+      </div>
+    </header>
+
+    <!-- Loading -->
+    <div
+      class="state-card"
+      *ngIf="loading"
+      role="status"
+    >
+      <div class="loading-spinner"></div>
+      <h2>Loading your report...</h2>
+      <p>Retrieving accessibility analysis results.</p>
+    </div>
+
+    <!-- Error -->
+    <div
+      class="state-card error-state"
+      *ngIf="!loading && errorMessage"
+      role="alert"
+    >
+      <div class="state-icon">!</div>
+      <h2>Unable to load results</h2>
+      <p>{{ errorMessage }}</p>
+      <a routerLink="/" class="secondary-button">
+        Return to upload
+      </a>
+    </div>
+
+    <!-- Results -->
+    <ng-container
+      *ngIf="!loading && !errorMessage"
+    >
+
+      <!-- Movie details -->
+      <section class="movie-card">
+        <div class="movie-icon">▶</div>
+
+        <div class="movie-details">
+          <span class="section-label">
+            ANALYZED MOVIE
+          </span>
+
+          <h2>{{ movieName }}</h2>
+
+          <p class="job-reference">
+            Job reference: {{ jobId }}
+          </p>
+        </div>
+
+        <span
+          class="completion-badge"
+          *ngIf="analysisStatus === 'completed'"
+        >
+          ✓ Analysis Complete
+        </span>
+
+        <span
+          class="status-badge"
+          *ngIf="analysisStatus !== 'completed'"
+        >
+          {{ analysisStatus || 'Status unavailable' }}
+        </span>
+      </section>
+
+      <!-- Summary -->
+      <section class="summary-section">
+        <div class="section-heading">
+          <div>
+            <span class="section-label">
+              OVERVIEW
+            </span>
+            <h2>Analysis Summary</h2>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+
+          <div class="summary-card">
+            <div class="summary-icon purple">▤</div>
+            <span class="summary-number">
+              {{ totalWarnings }}
+            </span>
+            <span class="summary-label">
+              Total Warnings
+            </span>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-icon yellow">⚡</div>
+            <span class="summary-number">
+              {{ flashWarnings }}
+            </span>
+            <span class="summary-label">
+              Flashing Visuals
+            </span>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-icon blue">♫</div>
+            <span class="summary-number">
+              {{ audioWarnings }}
+            </span>
+            <span class="summary-label">
+              Audio Warnings
+            </span>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-icon red">!</div>
+            <span class="summary-number">
+              {{ highSeverityWarnings }}
+            </span>
+            <span class="summary-label">
+              High Severity
+            </span>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Detected events -->
+      <section class="warnings-section">
+
+        <div class="section-heading">
+          <div>
+            <span class="section-label">
+              DETAILED REPORT
+            </span>
+            <h2>Detected Events</h2>
+            <p>
+              Events are ordered by their position
+              in the movie.
+            </p>
+          </div>
+
+          <span class="event-count">
+            {{ totalWarnings }}
+            {{ totalWarnings === 1 ? 'event' : 'events' }}
+          </span>
+        </div>
+
+        <!-- Empty state -->
+        <div
+          class="empty-state"
+          *ngIf="warnings.length === 0"
+        >
+          <div class="empty-icon">✓</div>
+
+          <h3>No warnings detected</h3>
+
+          <p>
+            The analysis did not identify any
+            accessibility warning events in this movie.
+            This does not guarantee that the movie
+            is free of accessibility risks.
+          </p>
+        </div>
+
+        <!-- Warning cards -->
+        <div
+          class="warning-list"
+          *ngIf="warnings.length > 0"
+        >
+
+          <article
+            class="warning-card"
+            *ngFor="let warning of warnings; let i = index"
+          >
+
+            <div class="warning-top">
+
+              <div class="warning-identity">
+                <div
+                  class="warning-icon"
+                  [class.flash-icon]="isFlash(warning.warning_type)"
+                  [class.audio-icon]="isAudio(warning.warning_type)"
+                >
+                  {{ isFlash(warning.warning_type)
+                      ? '⚡'
+                      : isAudio(warning.warning_type)
+                      ? '♫'
+                      : '!' }}
+                </div>
+
+                <div>
+                  <span class="warning-index">
+                    EVENT {{ i + 1 }}
+                  </span>
+
+                  <h3>
+                    {{ getWarningTitle(warning.warning_type) }}
+                  </h3>
+                </div>
+              </div>
+
+              <span
+                class="severity-badge"
+                [ngClass]="getSeverityClass(warning.severity)"
+              >
+                {{ warning.severity || 'Unknown' }} severity
+              </span>
+
+            </div>
+
+            <div class="warning-timeline">
+              <span class="timeline-dot"></span>
+              <span class="timeline-line"></span>
+              <span class="timeline-dot"></span>
+            </div>
+
+            <div class="warning-time">
+              <div>
+                <span class="detail-label">START</span>
+                <strong>
+                  {{ formatTime(warning.start_time) }}
+                </strong>
+              </div>
+
+              <div>
+                <span class="detail-label">END</span>
+                <strong>
+                  {{ formatTime(warning.end_time) }}
+                </strong>
+              </div>
+
+              <div>
+                <span class="detail-label">DURATION</span>
+                <strong>
+                  {{ (warning.end_time - warning.start_time) | number:'1.1-1' }}s
+                </strong>
+              </div>
+            </div>
+
+            <div class="warning-meta">
+              <div class="meta-item">
+                <span class="detail-label">
+                  CONFIDENCE
+                </span>
+                <strong>
+                  {{ warning.confidence == null
+                      ? 'N/A'
+                      : (warning.confidence | percent:'1.0-1') }}
+                </strong>
+              </div>
+
+              <div class="meta-item">
+                <span class="detail-label">
+                  DETECTION METHOD
+                </span>
+                <strong>
+                  {{ warning.detection_mode || 'Not specified' }}
+                </strong>
+              </div>
+
+              <div class="meta-item">
+                <span class="detail-label">
+                  EVENT COUNT
+                </span>
+                <strong>
+                  {{ warning.event_count }}
+                </strong>
+              </div>
+            </div>
+
+          </article>
+        </div>
+
+      </section>
+
+      <!-- Footer -->
+      <div class="report-footer">
+        <div>
+          <h3>Want to analyze another movie?</h3>
+          <p>
+            Upload another video to generate
+            a new accessibility report.
+          </p>
+        </div>
+
+        <a routerLink="/" class="primary-button">
+          Analyze Another Movie →
+        </a>
+      </div>
+
+      <p class="report-disclaimer">
+        This report is generated by automated detection
+        and is intended to support accessibility review,
+        not replace a comprehensive manual assessment.
+      </p>
+
+    </ng-container>
+
+  </div>
+</div>
