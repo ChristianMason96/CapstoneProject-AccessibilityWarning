@@ -8,6 +8,7 @@ const fs = require("fs");
 const { connection } = require("./connection");
 const pool = require("../../db");
 
+// Create the BullMQ worker to listen for job from the python worker
 const worker = new Worker(
   "movie-processing",
   async (job) => {
@@ -15,6 +16,7 @@ const worker = new Worker(
 
     const { dbJobId, moviePath, storedFileName } = job.data;
 
+// Job gets marked as processing in Postgre
   await pool.query(
     `
     UPDATE jobs
@@ -28,6 +30,7 @@ const worker = new Worker(
     [dbJobId]
   );
 
+// Path to python movie script
     const pythonScript = path.join(__dirname, "..", "..", "..", "worker", "process_movie.py");
 
     await new Promise((resolve, reject) => {
@@ -36,6 +39,7 @@ const worker = new Worker(
         stdio: "inherit"
       });
 
+// Check if job finishes succesfully, if not it fails
       python.on("close", (code) => {
         if (code === 0) {
           resolve();
@@ -44,11 +48,13 @@ const worker = new Worker(
         }
       });
 
+// Error handling on startup
       python.on("error", (err) => {
         reject(err);
       });
     });
 
+// Find JSON result after script
     const movieName = path.parse(storedFileName).name;
     const resultFilePath = path.join(
       __dirname,
@@ -60,10 +66,12 @@ const worker = new Worker(
       `${movieName}_results.json`
     );
 
+// Stop if JSON file was not found
     if (!fs.existsSync(resultFilePath)) {
       throw new Error(`Results file not found: ${resultFilePath}`);
     }
 
+// Read and Parse warning results then combine flash and audio to be stored 
     const rawResults = fs.readFileSync(resultFilePath, "utf-8");
     const parsedResults = JSON.parse(rawResults);
 
@@ -71,6 +79,7 @@ const worker = new Worker(
     const audioWarnings = parsedResults.audio_warnings || [];
     const allWarnings = [...flashWarnings, ...audioWarnings];
 
+// Save warning segments to Postgre 
     for (const warning of allWarnings) {
       await pool.query(
         `
@@ -91,6 +100,7 @@ const worker = new Worker(
       );
     }
 
+// Mark job as complete after saving warnings
   await pool.query(
     `
     UPDATE jobs
@@ -107,6 +117,8 @@ const worker = new Worker(
     return { success: true };
   },
   {
+
+// Give time to large processing jobs before treating them as stalled
     connection,
     lockDuration: 600000,
     stalledInterval: 30000,
@@ -114,6 +126,7 @@ const worker = new Worker(
   }
 );
 
+// If job fails store the state and error message to Postgre
 worker.on("failed", async (job, err) => {
   try {
     if (job?.data?.dbJobId) {

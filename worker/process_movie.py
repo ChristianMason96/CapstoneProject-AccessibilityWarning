@@ -15,11 +15,15 @@ MODELS_DIR = os.path.join(os.path.dirname(__file__), "models")
 
 
 def extract_frames(movie_path, movie_name):
-    frames_output_dir = os.path.join(OUTPUT_DIR, "frames", movie_name)
+
+# Create folder to store frames
+    frames_output_dir = os.path.join(OUTPUT_DIR, "frames", movie_name) 
     os.makedirs(frames_output_dir, exist_ok=True)
 
+# FFmpeg saves frames using numbered filename
     frame_pattern = os.path.join(frames_output_dir, "frame_%04d.jpg")
 
+# FFmpeg command to auto overwrite existing files 
     command = [
         "ffmpeg",
         "-y",
@@ -28,16 +32,22 @@ def extract_frames(movie_path, movie_name):
     ]
 
     print("Extracting video frames...")
-    subprocess.run(command, check=True)
+
+# Stop with an error if extraction fails
+    subprocess.run(command, check=True) 
     print(f"Frames saved to: {frames_output_dir}")
 
 
 def extract_audio(movie_path, movie_name):
+
+# Create folder to store temp audio files
     audio_output_dir = os.path.join(OUTPUT_DIR, "audio")
     os.makedirs(audio_output_dir, exist_ok=True)
 
     audio_output_path = os.path.join(audio_output_dir, f"{movie_name}.wav")
 
+# Convert audio to WAV to be analyzed by audio dectector
+# option commands set sample rate, use uncompressed WAV, and ignores the video stream
     command = [
         "ffmpeg",
         "-y",
@@ -50,6 +60,8 @@ def extract_audio(movie_path, movie_name):
     ]
 
     print("Extracting audio and converting to WAV...")
+
+# If conversion fails raise error
     subprocess.run(command, check=True)
     print(f"Audio saved to: {audio_output_path}")
 
