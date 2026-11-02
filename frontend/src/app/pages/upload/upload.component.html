@@ -94,7 +94,6 @@
         aria-live="polite"
       >
 
-        <!-- ROTATING ANIMATION -->
         <div class="analysis-animation" *ngIf="uploading">
           <div class="analysis-orbit">
 
@@ -173,7 +172,11 @@
       </div>
 
       <!-- ERROR MESSAGE -->
-      <div class="error-box" *ngIf="errorMessage">
+      <div
+        class="error-box"
+        *ngIf="errorMessage"
+        role="alert"
+      >
 
         <strong>
           {{ errorType === 'validation'
@@ -188,7 +191,6 @@
         <p>{{ errorMessage }}</p>
 
       </div>
-
     </div>
 
     <!-- FEATURE CARDS -->
@@ -228,6 +230,5 @@
       </div>
 
     </div>
-
   </div>
 </div>

@@ -1,3 +1,4 @@
+
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
@@ -24,13 +25,8 @@ export class ResultsComponent implements OnInit {
 
   jobId = '';
 
-  // Keep the original API filename field
-  fileName = '';
-
-  // Name expected by the redesigned HTML
   movieName = '';
 
-  // Job status expected by the redesigned HTML
   analysisStatus = '';
 
   warnings: Warning[] = [];
@@ -45,7 +41,6 @@ export class ResultsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-
     this.jobId =
       this.route.snapshot.paramMap.get('jobId') || '';
 
@@ -59,19 +54,14 @@ export class ResultsComponent implements OnInit {
   }
 
   loadResults(): void {
-
     this.movieApi
       .getWarnings(this.jobId)
       .subscribe({
-
         next: response => {
+          this.movieName =
+            response.fileName || 'Uploaded movie';
 
-          // Keep both names so the old logic and new UI work
-          this.fileName = response.fileName || '';
-          this.movieName = response.fileName || '';
-
-          this.analysisStatus =
-            response.status || 'completed';
+          this.analysisStatus = response.status;
 
           this.warnings =
             response.warnings || [];
@@ -80,14 +70,12 @@ export class ResultsComponent implements OnInit {
         },
 
         error: error => {
-
           console.error(
             'Failed to load results:',
             error
           );
 
           this.loading = false;
-
           this.analysisStatus = 'failed';
 
           this.errorMessage =
@@ -102,21 +90,21 @@ export class ResultsComponent implements OnInit {
     return this.warnings.length;
   }
 
-  // Number of flash warnings
+  // Number of flash warning segments
   get flashWarnings(): number {
     return this.warnings.filter(
       warning => this.isFlash(warning.warning_type)
     ).length;
   }
 
-  // Number of audio warnings
+  // Number of audio warning segments
   get audioWarnings(): number {
     return this.warnings.filter(
       warning => this.isAudio(warning.warning_type)
     ).length;
   }
 
-  // Number of warnings marked as high severity
+  // Number of high-severity warning segments
   get highSeverityWarnings(): number {
     return this.warnings.filter(
       warning =>
@@ -124,15 +112,12 @@ export class ResultsComponent implements OnInit {
     ).length;
   }
 
-  // Check whether a warning is a flash warning
   isFlash(type: string): boolean {
-
     if (!type) {
       return false;
     }
 
-    const normalized =
-      type.toLowerCase();
+    const normalized = type.toLowerCase();
 
     return (
       normalized === 'flash' ||
@@ -141,15 +126,12 @@ export class ResultsComponent implements OnInit {
     );
   }
 
-  // Check whether a warning is an audio warning
   isAudio(type: string): boolean {
-
     if (!type) {
       return false;
     }
 
-    const normalized =
-      type.toLowerCase();
+    const normalized = type.toLowerCase();
 
     return (
       normalized === 'audio_spike' ||
@@ -158,9 +140,7 @@ export class ResultsComponent implements OnInit {
     );
   }
 
-  // User-friendly title for each warning type
   getWarningTitle(type: string): string {
-
     if (this.isFlash(type)) {
       return 'Flash Warning';
     }
@@ -172,15 +152,12 @@ export class ResultsComponent implements OnInit {
     return type || 'Accessibility Warning';
   }
 
-  // Return a CSS class based on warning severity
   getSeverityClass(severity: string): string {
-
     if (!severity) {
       return 'severity-unknown';
     }
 
     switch (severity.toLowerCase()) {
-
       case 'high':
         return 'severity-high';
 
@@ -195,9 +172,7 @@ export class ResultsComponent implements OnInit {
     }
   }
 
-  // Convert seconds into minutes:seconds
   formatTime(seconds: number): string {
-
     if (
       seconds === null ||
       seconds === undefined ||
@@ -206,11 +181,11 @@ export class ResultsComponent implements OnInit {
       return '0:00';
     }
 
-    const totalSeconds =
-      Number(seconds);
+    const totalSeconds = Number(seconds);
 
-    const minutes =
-      Math.floor(totalSeconds / 60);
+    const minutes = Math.floor(
+      totalSeconds / 60
+    );
 
     const remainingSeconds =
       totalSeconds % 60;
@@ -227,7 +202,6 @@ export class ResultsComponent implements OnInit {
   formatConfidence(
     confidence: number | null
   ): string {
-
     if (confidence === null) {
       return 'N/A';
     }
@@ -238,7 +212,7 @@ export class ResultsComponent implements OnInit {
     );
   }
 
-  // Keep compatibility with the older results template/code
+  // Compatibility with the original results template logic
   warningTitle(type: string): string {
     return this.getWarningTitle(type);
   }

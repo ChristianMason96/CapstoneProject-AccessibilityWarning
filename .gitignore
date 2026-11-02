@@ -1,20 +1,26 @@
-node_modules/
-venv/
-.venv/
-__pycache__/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Uploaded movies and generated output
+/uploads/
+/output/
+*.log
+
+# Node and Python dependencies
+**/node_modules/
+**/venv/
+**/.venv/
+**/__pycache__/
 *.pyc
 
-uploads/
-output/
+# Angular build files
+frontend/.angular/
+frontend/dist/
+frontend/coverage/
 
-.env
-.env.local
-
-backend/node_modules/
-worker/venv/
-
-*.wav
-*.jpg
-*.jpeg
-*.png
-*.mp4
+# Editor/system files
+.DS_Store
+Thumbs.db
