@@ -14,25 +14,21 @@ import {
 @Component({
   selector: 'app-results',
   standalone: true,
-  imports: [
-    CommonModule,
-    RouterLink
-  ],
+  imports: [CommonModule, RouterLink],
   templateUrl: './results.component.html',
   styleUrl: './results.component.css'
 })
 export class ResultsComponent implements OnInit {
 
   jobId = '';
-
   movieName = '';
-
   analysisStatus = '';
 
+  // Only high-severity warnings with a visible
+  // duration are displayed in the report.
   warnings: Warning[] = [];
 
   loading = true;
-
   errorMessage = '';
 
   constructor(
@@ -54,110 +50,133 @@ export class ResultsComponent implements OnInit {
   }
 
   loadResults(): void {
-    this.movieApi
-      .getWarnings(this.jobId)
-      .subscribe({
-        next: response => {
-          this.movieName =
-            response.fileName || 'Uploaded movie';
+    this.loading = true;
+    this.errorMessage = '';
 
-          this.analysisStatus = response.status;
+    this.movieApi.getWarnings(this.jobId).subscribe({
+      next: response => {
+        this.movieName =
+          response.fileName || 'Uploaded movie';
 
-          this.warnings =
-            response.warnings || [];
+        this.analysisStatus = response.status;
 
-          this.loading = false;
-        },
+        // Filter warnings before displaying them.
+        // All original warnings remain stored in PostgreSQL.
+        this.warnings = (response.warnings || [])
+          .filter(warning => {
 
-        error: error => {
-          console.error(
-            'Failed to load results:',
-            error
+            // Only display high-severity warnings.
+            const isHighSeverity =
+              (warning.severity || '')
+                .trim()
+                .toLowerCase() === 'high';
+
+            // Calculate the actual duration.
+            const duration =
+              Number(warning.end_time) -
+              Number(warning.start_time);
+
+            // Exclude invalid durations and warnings
+            // that would display as 0.0 seconds.
+            const hasVisibleDuration =
+              Number.isFinite(duration) &&
+              Math.round(duration * 10) > 0;
+
+            return isHighSeverity && hasVisibleDuration;
+          })
+          .sort((a, b) =>
+            Number(a.start_time) - Number(b.start_time)
           );
 
-          this.loading = false;
-          this.analysisStatus = 'failed';
+        this.loading = false;
+      },
 
-          this.errorMessage =
-            error?.error?.error ||
-            'Unable to load warning results.';
-        }
-      });
+      error: error => {
+        console.error(
+          'Failed to load results:',
+          error
+        );
+
+        this.loading = false;
+        this.analysisStatus = 'failed';
+
+        this.errorMessage =
+          error?.error?.error ||
+          'Unable to load warning results.';
+      }
+    });
   }
 
-  // Total number of warning segments
+  // Total number of displayed warnings.
   get totalWarnings(): number {
     return this.warnings.length;
   }
 
-  // Number of flash warning segments
+  // Number of displayed flash warnings.
   get flashWarnings(): number {
     return this.warnings.filter(
       warning => this.isFlash(warning.warning_type)
     ).length;
   }
 
-  // Number of audio warning segments
+  // Number of displayed audio warnings.
   get audioWarnings(): number {
     return this.warnings.filter(
       warning => this.isAudio(warning.warning_type)
     ).length;
   }
 
-  // Number of high-severity warning segments
+  // Number of displayed high-severity warnings.
   get highSeverityWarnings(): number {
-    return this.warnings.filter(
-      warning =>
-        warning.severity?.toLowerCase() === 'high'
-    ).length;
+    return this.warnings.length;
   }
 
+  // Timestamp of the first displayed warning.
+  get firstWarningTime(): string {
+    if (this.warnings.length === 0) {
+      return '—';
+    }
+
+    return this.formatTime(
+      this.warnings[0].start_time
+    );
+  }
+
+  // Identify flash warnings.
   isFlash(type: string): boolean {
     if (!type) {
       return false;
     }
 
-    const normalized = type.toLowerCase();
-
-    return (
-      normalized === 'flash' ||
-      normalized === 'flashing' ||
-      normalized.includes('flash')
-    );
+    return type.toLowerCase().includes('flash');
   }
 
+  // Identify audio warnings.
   isAudio(type: string): boolean {
     if (!type) {
       return false;
     }
 
-    const normalized = type.toLowerCase();
-
-    return (
-      normalized === 'audio_spike' ||
-      normalized === 'audio' ||
-      normalized.includes('audio')
-    );
+    return type.toLowerCase().includes('audio');
   }
 
+  // Display user-friendly warning titles.
   getWarningTitle(type: string): string {
     if (this.isFlash(type)) {
-      return 'Flash Warning';
+      return 'Possible Flashing Visuals';
     }
 
     if (this.isAudio(type)) {
-      return 'Audio Spike Warning';
+      return 'Possible Sudden Audio Spike';
     }
 
-    return type || 'Accessibility Warning';
+    return 'Possible Accessibility Warning';
   }
 
+  // Return the correct CSS class for severity.
   getSeverityClass(severity: string): string {
-    if (!severity) {
-      return 'severity-unknown';
-    }
+    switch ((severity || '').toLowerCase()) {
 
-    switch (severity.toLowerCase()) {
       case 'high':
         return 'severity-high';
 
@@ -172,47 +191,46 @@ export class ResultsComponent implements OnInit {
     }
   }
 
+  // Convert seconds into minutes:seconds.
   formatTime(seconds: number): string {
     if (
       seconds === null ||
       seconds === undefined ||
-      Number.isNaN(Number(seconds))
+      !Number.isFinite(Number(seconds))
     ) {
       return '0:00';
     }
 
-    const totalSeconds = Number(seconds);
-
-    const minutes = Math.floor(
-      totalSeconds / 60
+    const total = Math.max(
+      0,
+      Number(seconds)
     );
 
-    const remainingSeconds =
-      totalSeconds % 60;
+    const minutes = Math.floor(total / 60);
+    const remaining = total % 60;
 
     return (
       minutes +
       ':' +
-      remainingSeconds
-        .toFixed(2)
-        .padStart(5, '0')
+      remaining.toFixed(2).padStart(5, '0')
     );
   }
 
+  // Format model confidence as a percentage.
   formatConfidence(
     confidence: number | null
   ): string {
-    if (confidence === null) {
+    if (
+      confidence === null ||
+      !Number.isFinite(Number(confidence))
+    ) {
       return 'N/A';
     }
 
-    return (
-      Math.round(confidence * 100) +
-      '%'
-    );
+    return `${(Number(confidence) * 100).toFixed(1)}%`;
   }
 
-  // Compatibility with the original results template logic
+  // Compatibility with the original results template.
   warningTitle(type: string): string {
     return this.getWarningTitle(type);
   }

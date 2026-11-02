@@ -564,3 +564,21 @@
     width: 100%;
   }
 }
+
+
+/* Give warning timing space below the event heading,
+   now that the decorative timeline has been removed. */
+.warning-time {
+  margin-top: 26px;
+}
+
+/* Detection confidence is now the only metadata field. */
+.warning-meta {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Keep longer first-warning timestamps inside summary cards. */
+.summary-number {
+  overflow-wrap: anywhere;
+}
+
