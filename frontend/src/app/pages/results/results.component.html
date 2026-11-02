@@ -1,7 +1,8 @@
+
 <div class="results-page">
   <div class="results-container">
 
-    <!-- Header -->
+    <!-- HEADER -->
     <header class="report-header">
       <a routerLink="/" class="back-link">
         ← Back to upload
@@ -15,13 +16,13 @@
         <h1>Movie Analysis Results</h1>
 
         <p>
-          Review detected accessibility events,
-          their severity, and when they occur.
+          Review higher-severity accessibility warnings
+          and when they may occur in your movie.
         </p>
       </div>
     </header>
 
-    <!-- Loading -->
+    <!-- LOADING -->
     <div
       class="state-card"
       *ngIf="loading"
@@ -32,7 +33,7 @@
       <p>Retrieving accessibility analysis results.</p>
     </div>
 
-    <!-- Error -->
+    <!-- ERROR -->
     <div
       class="state-card error-state"
       *ngIf="!loading && errorMessage"
@@ -41,17 +42,16 @@
       <div class="state-icon">!</div>
       <h2>Unable to load results</h2>
       <p>{{ errorMessage }}</p>
+
       <a routerLink="/" class="secondary-button">
         Return to upload
       </a>
     </div>
 
-    <!-- Results -->
-    <ng-container
-      *ngIf="!loading && !errorMessage"
-    >
+    <!-- REPORT -->
+    <ng-container *ngIf="!loading && !errorMessage">
 
-      <!-- Movie details -->
+      <!-- MOVIE DETAILS -->
       <section class="movie-card">
         <div class="movie-icon">▶</div>
 
@@ -61,10 +61,6 @@
           </span>
 
           <h2>{{ movieName }}</h2>
-
-          <p class="job-reference">
-            Job reference: {{ jobId }}
-          </p>
         </div>
 
         <span
@@ -82,14 +78,20 @@
         </span>
       </section>
 
-      <!-- Summary -->
+      <!-- SUMMARY -->
       <section class="summary-section">
         <div class="section-heading">
           <div>
             <span class="section-label">
               OVERVIEW
             </span>
-            <h2>Analysis Summary</h2>
+
+            <h2>High-Severity Summary</h2>
+
+            <p>
+              Only high-severity detections are included
+              in the totals below.
+            </p>
           </div>
         </div>
 
@@ -97,19 +99,23 @@
 
           <div class="summary-card">
             <div class="summary-icon purple">▤</div>
+
             <span class="summary-number">
               {{ totalWarnings }}
             </span>
+
             <span class="summary-label">
-              Total Warnings
+              High-Severity Warnings
             </span>
           </div>
 
           <div class="summary-card">
             <div class="summary-icon yellow">⚡</div>
+
             <span class="summary-number">
               {{ flashWarnings }}
             </span>
+
             <span class="summary-label">
               Flashing Visuals
             </span>
@@ -117,9 +123,11 @@
 
           <div class="summary-card">
             <div class="summary-icon blue">♫</div>
+
             <span class="summary-number">
               {{ audioWarnings }}
             </span>
+
             <span class="summary-label">
               Audio Warnings
             </span>
@@ -127,18 +135,20 @@
 
           <div class="summary-card">
             <div class="summary-icon red">!</div>
+
             <span class="summary-number">
-              {{ highSeverityWarnings }}
+              {{ firstWarningTime }}
             </span>
+
             <span class="summary-label">
-              High Severity
+              First Warning At
             </span>
           </div>
 
         </div>
       </section>
 
-      <!-- Detected events -->
+      <!-- HIGH-SEVERITY REPORT -->
       <section class="warnings-section">
 
         <div class="section-heading">
@@ -146,40 +156,60 @@
             <span class="section-label">
               DETAILED REPORT
             </span>
-            <h2>Detected Events</h2>
+
+            <h2>High-Severity Warnings</h2>
+
             <p>
-              Events are ordered by their position
-              in the movie.
+              Warnings are shown in movie order.
+              Lower-severity detections are not displayed.
             </p>
           </div>
 
           <span class="event-count">
             {{ totalWarnings }}
-            {{ totalWarnings === 1 ? 'event' : 'events' }}
+            {{ totalWarnings === 1 ? 'warning' : 'warnings' }}
           </span>
         </div>
 
-        <!-- Empty state -->
+        <!-- EMPTY STATE -->
         <div
           class="empty-state"
-          *ngIf="warnings.length === 0"
+          *ngIf="analysisStatus === 'completed' && warnings.length === 0"
+          role="status"
         >
           <div class="empty-icon">✓</div>
 
-          <h3>No warnings detected</h3>
+          <h3>No high-severity warnings identified</h3>
 
           <p>
-            The analysis did not identify any
-            accessibility warning events in this movie.
-            This does not guarantee that the movie
-            is free of accessibility risks.
+            The analysis did not flag any high-severity
+            events in this movie. Lower-severity detections
+            may exist but are hidden from this report.
+            This does not guarantee the movie is free
+            of flashing visuals or sudden audio spikes.
           </p>
         </div>
 
-        <!-- Warning cards -->
+        <!-- INCOMPLETE ANALYSIS -->
+        <div
+          class="empty-state"
+          *ngIf="analysisStatus !== 'completed'"
+          role="status"
+        >
+          <h3>Analysis is not complete</h3>
+
+          <p>
+            Current job status:
+            {{ analysisStatus || 'unknown' }}.
+            The final report is only available after
+            processing has completed successfully.
+          </p>
+        </div>
+
+        <!-- WARNING CARDS -->
         <div
           class="warning-list"
-          *ngIf="warnings.length > 0"
+          *ngIf="analysisStatus === 'completed' && warnings.length > 0"
         >
 
           <article
@@ -190,47 +220,48 @@
             <div class="warning-top">
 
               <div class="warning-identity">
+
                 <div
                   class="warning-icon"
                   [class.flash-icon]="isFlash(warning.warning_type)"
                   [class.audio-icon]="isAudio(warning.warning_type)"
                 >
-                  {{ isFlash(warning.warning_type)
+                  {{
+                    isFlash(warning.warning_type)
                       ? '⚡'
                       : isAudio(warning.warning_type)
                       ? '♫'
-                      : '!' }}
+                      : '!'
+                  }}
                 </div>
 
                 <div>
                   <span class="warning-index">
-                    EVENT {{ i + 1 }}
+                    WARNING {{ i + 1 }}
                   </span>
 
                   <h3>
                     {{ getWarningTitle(warning.warning_type) }}
                   </h3>
                 </div>
+
               </div>
 
               <span
                 class="severity-badge"
                 [ngClass]="getSeverityClass(warning.severity)"
               >
-                {{ warning.severity || 'Unknown' }} severity
+                High Severity
               </span>
 
             </div>
 
-            <div class="warning-timeline">
-              <span class="timeline-dot"></span>
-              <span class="timeline-line"></span>
-              <span class="timeline-dot"></span>
-            </div>
-
+            <!-- TIME INFORMATION -->
             <div class="warning-time">
+
               <div>
                 <span class="detail-label">START</span>
+
                 <strong>
                   {{ formatTime(warning.start_time) }}
                 </strong>
@@ -238,6 +269,7 @@
 
               <div>
                 <span class="detail-label">END</span>
+
                 <strong>
                   {{ formatTime(warning.end_time) }}
                 </strong>
@@ -245,52 +277,43 @@
 
               <div>
                 <span class="detail-label">DURATION</span>
+
                 <strong>
-                  {{ (warning.end_time - warning.start_time) | number:'1.1-1' }}s
+                  {{
+                    (warning.end_time - warning.start_time)
+                    | number:'1.1-1'
+                  }}s
                 </strong>
               </div>
+
             </div>
 
+            <!-- CONFIDENCE -->
             <div class="warning-meta">
-              <div class="meta-item">
-                <span class="detail-label">
-                  CONFIDENCE
-                </span>
-                <strong>
-                  {{ warning.confidence == null
-                      ? 'N/A'
-                      : (warning.confidence | percent:'1.0-1') }}
-                </strong>
-              </div>
 
               <div class="meta-item">
                 <span class="detail-label">
-                  DETECTION METHOD
+                  DETECTION CONFIDENCE
                 </span>
+
                 <strong>
-                  {{ warning.detection_mode || 'Not specified' }}
+                  {{ formatConfidence(warning.confidence) }}
                 </strong>
               </div>
 
-              <div class="meta-item">
-                <span class="detail-label">
-                  EVENT COUNT
-                </span>
-                <strong>
-                  {{ warning.event_count }}
-                </strong>
-              </div>
             </div>
 
           </article>
+
         </div>
 
       </section>
 
-      <!-- Footer -->
+      <!-- FOOTER -->
       <div class="report-footer">
         <div>
           <h3>Want to analyze another movie?</h3>
+
           <p>
             Upload another video to generate
             a new accessibility report.
@@ -302,10 +325,15 @@
         </a>
       </div>
 
+      <!-- DISCLAIMER -->
       <p class="report-disclaimer">
-        This report is generated by automated detection
-        and is intended to support accessibility review,
-        not replace a comprehensive manual assessment.
+        This report displays only higher-severity
+        automated detections. Lower-severity events
+        are not shown. Detection confidence is a model
+        score, not a guarantee of accuracy. Some events
+        may be missed or incorrectly flagged.
+        This report does not replace a manual
+        accessibility review.
       </p>
 
     </ng-container>
