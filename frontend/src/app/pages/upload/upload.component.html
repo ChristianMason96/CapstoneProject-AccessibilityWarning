@@ -1,61 +1,234 @@
-<div class="upload-container">
 
-  <h1>AI Accessibility Warning for Movies</h1>
+<div class="upload-page">
+  <div class="upload-container">
 
-  <p>
-    Upload a movie to check for flashing visuals
-    and sudden audio spikes.
-  </p>
+    <!-- HERO SECTION -->
+    <div class="hero-section">
+      <div class="eyebrow">
+        &#10022; AI-POWERED ACCESSIBILITY ANALYSIS
+      </div>
 
-  <input
-    type="file"
-    accept="video/*"
-    (change)="onFileSelected($event)"
-  />
+      <h1>
+        Make every movie
+        <span>more accessible.</span>
+      </h1>
 
-  <p *ngIf="selectedFile">
-    Selected:
-    {{ selectedFile.name }}
-  </p>
+      <p class="hero-description">
+        Upload your video to identify potentially flashing visuals
+        and sudden audio spikes. Get a clear, easy-to-read
+        accessibility report.
+      </p>
+    </div>
 
-  <button
-    (click)="uploadMovie()"
-    [disabled]="!selectedFile || uploading"
-  >
-    Analyze Movie
-  </button>
+    <!-- UPLOAD CARD -->
+    <div class="upload-card">
 
-  <div *ngIf="status">
+      <div class="card-heading">
+        <div>
+          <h2>Upload your movie</h2>
+          <p>Choose a video file to begin your analysis.</p>
+        </div>
 
-    <h3>Status</h3>
+        <span class="step-label">STEP 01 / 02</span>
+      </div>
 
-    <p>{{ status }}</p>
+      <!-- FILE PICKER -->
+      <label
+        class="drop-zone"
+        [class.has-file]="selectedFile"
+        [class.is-disabled]="uploading"
+      >
+        <input
+          type="file"
+          accept="video/*"
+          (change)="onFileSelected($event)"
+          [disabled]="uploading"
+        />
 
+        <div class="upload-icon">&#8593;</div>
+
+        <ng-container *ngIf="!selectedFile">
+          <h3>Choose a movie to analyze</h3>
+          <p>Click here to browse your video files</p>
+          <span class="browse-label">Browse files</span>
+        </ng-container>
+
+        <ng-container *ngIf="selectedFile">
+          <h3>{{ selectedFile.name }}</h3>
+
+          <p>
+            {{ selectedFile.size / 1024 / 1024 | number:'1.1-1' }}
+            MB
+          </p>
+
+          <span class="browse-label" *ngIf="!uploading">
+            Change file
+          </span>
+        </ng-container>
+      </label>
+
+      <!-- UPLOAD BUTTON -->
+      <div class="upload-footer">
+
+        <div class="privacy-note">
+          <span>&#10022;</span>
+          Your video will be analyzed for accessibility events.
+        </div>
+
+        <button
+          class="analyze-button"
+          type="button"
+          (click)="uploadMovie()"
+          [disabled]="!selectedFile || uploading"
+        >
+          {{ uploading ? 'Analyzing Movie...' : 'Analyze Movie →' }}
+        </button>
+
+      </div>
+
+      <!-- ANIMATED ANALYSIS PANEL -->
+      <div
+        class="status-panel"
+        *ngIf="uploading || status"
+        role="status"
+        aria-live="polite"
+      >
+
+        <div class="analysis-animation" *ngIf="uploading">
+          <div class="analysis-orbit">
+
+            <div class="analysis-core">
+              &#9654;
+            </div>
+
+            <span class="orbit-dot dot-one"></span>
+            <span class="orbit-dot dot-two"></span>
+            <span class="orbit-dot dot-three"></span>
+
+          </div>
+        </div>
+
+        <!-- STATUS HEADING -->
+        <div class="status-heading">
+          <span class="status-indicator"></span>
+
+          <h3>
+            {{ uploading ? 'Analyzing your movie' : 'Analysis status' }}
+          </h3>
+        </div>
+
+        <!-- STATUS MESSAGE -->
+        <p class="status-text">
+          {{ status === 'queued'
+            ? 'Your movie is queued and waiting for analysis.'
+            : status === 'processing'
+            ? 'Your movie is being analyzed for accessibility events.'
+            : status === 'Uploading...'
+            ? 'Uploading your movie securely...'
+            : status }}
+        </p>
+
+        <!-- ANIMATED PROGRESS BAR -->
+        <div
+          class="progress-track"
+          *ngIf="uploading"
+          aria-label="Analysis in progress"
+        >
+          <div class="progress-bar"></div>
+        </div>
+
+        <!-- ANALYSIS STEPS -->
+        <div class="analysis-steps" *ngIf="uploading">
+
+          <div
+            class="analysis-step"
+            [class.step-active]="status === 'Uploading...'"
+          >
+            <span class="step-dot"></span>
+            <span>Uploading video</span>
+          </div>
+
+          <div
+            class="analysis-step"
+            [class.step-active]="status === 'queued' || status === 'processing'"
+          >
+            <span class="step-dot"></span>
+            <span>Waiting for or running analysis</span>
+          </div>
+
+          <div class="analysis-step">
+            <span class="step-dot"></span>
+            <span>Preparing accessibility report</span>
+          </div>
+
+        </div>
+
+        <!-- STATUS HINT -->
+        <p class="status-hint" *ngIf="uploading">
+          Analysis time depends on the size and length of your movie.
+          Please keep this page open.
+        </p>
+
+      </div>
+
+      <!-- ERROR MESSAGE -->
+      <div
+        class="error-box"
+        *ngIf="errorMessage"
+        role="alert"
+      >
+
+        <strong>
+          {{ errorType === 'validation'
+            ? 'Invalid File'
+            : errorType === 'upload'
+            ? 'Upload Error'
+            : errorType === 'processing'
+            ? 'Processing Error'
+            : 'Connection Error' }}
+        </strong>
+
+        <p>{{ errorMessage }}</p>
+
+      </div>
+    </div>
+
+    <!-- FEATURE CARDS -->
+    <div class="feature-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon">&#9889;</div>
+
+        <h3>Flash Detection</h3>
+
+        <p>
+          Identify potentially intense flashing visuals
+          and rapid brightness changes.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#9835;</div>
+
+        <h3>Audio Analysis</h3>
+
+        <p>
+          Detect sudden audio spikes that may surprise
+          or discomfort viewers.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#9636;</div>
+
+        <h3>Detailed Reports</h3>
+
+        <p>
+          Review detected events with timestamps,
+          severity levels, and useful details.
+        </p>
+      </div>
+
+    </div>
   </div>
-
-<div
-  class="error-box"
-  *ngIf="errorMessage">
-  
-  <strong *ngIf="errorType === 'validation'">
-    Invalid File
-  </strong>
-
-  <strong *ngIf="errorType === 'upload'">
-    Upload Error
-  </strong>
-
-  <strong *ngIf="errorType === 'processing'">
-    Processing Error
-  </strong>
-
-  <strong *ngIf="errorType === 'connection'">
-    Connection Error
-  </strong>
-
-  <p>
-    {{ errorMessage }}
-  </p>
-</div>
-
 </div>
