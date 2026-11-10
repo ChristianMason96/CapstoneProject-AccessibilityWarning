@@ -11,10 +11,15 @@ const { randomUUID } = require("crypto");
 
 const { movieQueue } = require("./queue");
 const pool = require("./db");
+const {
+  uploadToS3,
+  deleteFromS3
+} = require("./src/services/s3Storage");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB || 250);
+const STORAGE_TYPE = process.env.STORAGE_TYPE || "local";
 
 const allowedExtensions = new Set([
   ".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi"
@@ -42,7 +47,6 @@ const storage = multer.diskStorage({
 
   filename: (_req, file, cb) => {
     const extension = path.extname(file.originalname).toLowerCase();
-
     cb(null, `${Date.now()}-${randomUUID()}${extension}`);
   }
 });
@@ -115,9 +119,34 @@ app.post("/upload", acceptMovieUpload, async (req, res) => {
   let queued = false;
   let dbJobId;
 
-  try {
-    client = await pool.connect();
+  let moviePath = req.file.path;
 
+  let fileReference = {
+    provider: "local",
+    path: req.file.path,
+    fileName: req.file.filename
+  };
+
+  try {
+    // Upload to S3 only when explicitly enabled.
+    if (STORAGE_TYPE === "s3") {
+      const s3Result = await uploadToS3(
+        req.file.path,
+        req.file.filename,
+        req.file.mimetype
+      );
+
+      moviePath = `s3://${s3Result.bucket}/${s3Result.key}`;
+
+      fileReference = {
+        provider: "s3",
+        bucket: s3Result.bucket,
+        key: s3Result.key,
+        fileName: req.file.filename
+      };
+    }
+
+    client = await pool.connect();
     await client.query("BEGIN");
 
     const mediaResult = await client.query(
@@ -128,7 +157,7 @@ app.post("/upload", acceptMovieUpload, async (req, res) => {
       [
         req.file.originalname,
         req.file.filename,
-        req.file.path
+        moviePath
       ]
     );
 
@@ -142,7 +171,6 @@ app.post("/upload", acceptMovieUpload, async (req, res) => {
     );
 
     dbJobId = jobResult.rows[0].id;
-
     const jobId = `movie-${dbJobId}`;
 
     await client.query(
@@ -152,7 +180,7 @@ app.post("/upload", acceptMovieUpload, async (req, res) => {
       [jobId, dbJobId]
     );
 
-    // The DB transaction is committed before the worker can receive the job.
+    // Commit before the worker receives the job.
     await client.query("COMMIT");
     committed = true;
 
@@ -161,7 +189,8 @@ app.post("/upload", acceptMovieUpload, async (req, res) => {
       {
         dbJobId,
         mediaFileId,
-        moviePath: req.file.path,
+        moviePath,
+        fileReference,
         originalFileName: req.file.originalname,
         storedFileName: req.file.filename,
         uploadedAt: new Date().toISOString()
@@ -172,6 +201,18 @@ app.post("/upload", acceptMovieUpload, async (req, res) => {
     );
 
     queued = true;
+
+    // S3 uploads no longer need the local staging copy.
+    if (STORAGE_TYPE === "s3") {
+      try {
+        await fs.promises.unlink(req.file.path);
+      } catch (cleanupError) {
+        console.warn(
+          "Could not remove temporary upload:",
+          cleanupError
+        );
+      }
+    }
 
     return res.status(201).json({
       message: "Movie uploaded and job created",
@@ -214,7 +255,22 @@ app.post("/upload", acceptMovieUpload, async (req, res) => {
       try {
         await fs.promises.unlink(req.file.path);
       } catch (_) {
-        // No uploaded file to remove.
+        // No local upload to remove.
+      }
+
+      // Remove the S3 object if it uploaded but queueing failed.
+      if (fileReference.provider === "s3") {
+        try {
+          await deleteFromS3(
+            fileReference.bucket,
+            fileReference.key
+          );
+        } catch (cleanupError) {
+          console.error(
+            "Could not clean up S3 upload:",
+            cleanupError
+          );
+        }
       }
     }
 
